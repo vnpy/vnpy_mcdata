@@ -1,12 +1,13 @@
 from datetime import datetime, timedelta
 from collections.abc import Callable
+from functools import lru_cache
 
 from icetcore import TCoreAPI, BarType
 
 from vnpy.trader.setting import SETTINGS
 from vnpy.trader.constant import Exchange, Interval
 from vnpy.trader.object import BarData, HistoryRequest, TickData
-from vnpy.trader.utility import ZoneInfo
+from vnpy.trader.utility import ZoneInfo, extract_vt_symbol
 from vnpy.trader.datafeed import BaseDatafeed
 
 
@@ -53,8 +54,6 @@ class McdataDatafeed(BaseDatafeed):
 
         self.api: TCoreAPI = None                               # API实例
 
-        self.symbol_name_map: dict[str, str] = {}               # vt_symbol: mc_symbol
-
     def init(self, output: Callable = print) -> bool:
         """初始化"""
         # 禁止重复初始化
@@ -65,24 +64,9 @@ class McdataDatafeed(BaseDatafeed):
         self.api = TCoreAPI(apppath=self.apppath)
         self.api.connect()
 
-        # 查询支持的合约代码
-        self.query_symbols()
-
         # 返回初始化状态
         self.inited = True
         return True
-
-    def query_symbols(self) -> None:
-        """查询合约"""
-        for exchange_str in EXCHANGE_MC2VT.keys():
-            symbols: list = self.api.getallsymbol(exchange=exchange_str)
-
-            for symbol_str in symbols:
-                # 查询交易所代码
-                symbol_id: str = self.api.getsymbol_id(symbol_str)
-
-                # 保存映射关系
-                self.symbol_name_map[symbol_id] = symbol_str
 
     def query_bar_history(self, req: HistoryRequest, output: Callable = print) -> list[BarData]:
         """查询K线数据"""
@@ -92,8 +76,8 @@ class McdataDatafeed(BaseDatafeed):
                 return []
 
         # 检查合约代码
-        name: str | None = self.symbol_name_map.get(req.symbol, None)
-        if not name:
+        mc_symbol: str = to_mc_symbol(req.vt_symbol)
+        if not mc_symbol:
             output(f"查询K线数据失败：不支持的合约代码{req.vt_symbol}")
             return []
 
@@ -115,7 +99,7 @@ class McdataDatafeed(BaseDatafeed):
                 quote_history: list[dict] = self.api.getquotehistory(
                     mc_interval,
                     mc_window,
-                    name,
+                    mc_symbol,
                     req.start.strftime("%Y%m%d%H"),
                     req.end.strftime("%Y%m%d%H")
                 )
@@ -130,7 +114,7 @@ class McdataDatafeed(BaseDatafeed):
             quote_history = self.api.getquotehistory(
                 mc_interval,
                 mc_window,
-                name,
+                mc_symbol,
                 query_start.strftime("%Y%m%d%H"),
                 query_end.strftime("%Y%m%d%H")
             )
@@ -175,3 +159,111 @@ class McdataDatafeed(BaseDatafeed):
     def query_tick_history(self, req: HistoryRequest, output: Callable = print) -> list[TickData]:
         """查询Tick数据（暂未支持）"""
         return []
+
+
+@lru_cache(maxsize=10000)
+def to_mc_symbol(vt_symbol: str) -> str:
+    """转换为MC合约代码"""
+    symbol, exchange = extract_vt_symbol(vt_symbol)
+
+    # 目前只支持期货交易所合约
+    if exchange in {
+        Exchange.CFFEX,
+        Exchange.SHFE,
+        Exchange.CZCE,
+        Exchange.DCE,
+        Exchange.INE,
+        Exchange.GFEX,
+    }:
+        # 期货合约
+        if len(symbol) <= 8:
+            suffix: str = check_perpetual(symbol)
+
+            # 连续合约
+            if suffix:
+                product: str = symbol.replace(suffix, "")
+                return f"TC.F.{exchange.value}.{product}.{suffix}"
+            # 交易合约
+            else:
+                # 获取产品代码
+                product = get_product(symbol)
+
+                # 获取合约月份
+                month: str = symbol[-2:]
+
+                # 获取合约年份
+                year: str = symbol.replace(product, "").replace(month, "")
+                if len(year) == 1:      # 郑商所特殊处理
+                    if int(year) <= 5:
+                        year = "2" + year
+                    else:
+                        year = "1" + year
+
+                return f"TC.F.{exchange.value}.{product}.20{year}{month}"
+        # 期货期权合约
+        else:
+            product = get_product(symbol)
+            left: str = symbol.replace(product, "")
+
+            # 中金所、大商所、广期所
+            if "-" in left:
+                if "-C-" in left:
+                    option_type: str = "C"
+                elif "-P-" in left:
+                    option_type = "P"
+
+                time_end: int = left.index("-") - 1
+                strike_start: int = time_end + 4
+            # 上期所、能交所、郑商所
+            else:
+                if "C" in left:
+                    option_type = "C"
+                    time_end = left.index("C") - 1
+                elif "P" in left:
+                    option_type = "P"
+                    time_end = left.index("P") - 1
+
+                strike_start = time_end + 3
+
+            # 获取关键信息
+            strike: str = left[strike_start:]
+            time_str: str = left[:time_end + 1]
+            month = time_str[-2:]
+            year = time_str.replace(month, "")
+
+            # 郑商所特殊处理
+            if len(year) == 1:
+                if int(year) <= 5:
+                    year = "2" + year
+                else:
+                    year = "1" + year
+
+            return f"TC.O.{exchange.value}.{product}.20{year}{month}.{option_type}.{strike}"
+
+    return ""
+
+
+def get_product(symbol: str) -> str:
+    """获取期货产品代码"""
+    buf: list[str] = []
+
+    for w in symbol:
+        if w.isdigit():
+            break
+        buf.append(w)
+
+    return "".join(buf)
+
+
+def check_perpetual(symbol: str) -> str:
+    """判断是否为连续合约"""
+    for suffix in [
+        "HOT",
+        "HOT/Q",
+        "HOT/H",
+        "000000"
+    ]:
+        if symbol.endswith(suffix):
+            return suffix
+
+    return ""
