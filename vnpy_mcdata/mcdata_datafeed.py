@@ -223,7 +223,7 @@ def to_mc_symbol(vt_symbol: str) -> str:
                     option_type = "P"
                     time_end = left.index("P") - 1
 
-                strike_start = time_end + 3
+                strike_start = time_end + 2
 
             # 获取关键信息
             strike: str = left[strike_start:]
