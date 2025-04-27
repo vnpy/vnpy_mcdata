@@ -128,7 +128,7 @@ class McdataDatafeed(BaseDatafeed):
 
         # 失败则直接返回
         if not all_quote_history:
-            output(f"获取{req.symbol}合约{req.start}-{req.end}历史数据失败")
+            output(f"获取{req.symbol}合约{req.start}-{req.end}历史数据失败 {mc_symbol}")
             return []
 
         # 转换数据格式
@@ -194,7 +194,7 @@ def to_mc_symbol(vt_symbol: str) -> str:
                 # 获取合约年份
                 year: str = symbol.replace(product, "").replace(month, "")
                 if len(year) == 1:      # 郑商所特殊处理
-                    if int(year) <= 5:
+                    if int(year) <= 6:
                         year = "2" + year
                     else:
                         year = "1" + year
@@ -233,7 +233,7 @@ def to_mc_symbol(vt_symbol: str) -> str:
 
             # 郑商所特殊处理
             if len(year) == 1:
-                if int(year) <= 5:
+                if int(year) <= 6:
                     year = "2" + year
                 else:
                     year = "1" + year
