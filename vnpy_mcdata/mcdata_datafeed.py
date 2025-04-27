@@ -94,7 +94,7 @@ class McdataDatafeed(BaseDatafeed):
         all_quote_history: list[dict] = []
         query_start: datetime = req.start
 
-        while query_start < req.end:
+        while query_start.date() <= req.end.date():
             if req.interval in [Interval.DAILY, Interval.HOUR]:
                 quote_history: list[dict] = self.api.getquotehistory(
                     mc_interval,
