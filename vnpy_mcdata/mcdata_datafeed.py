@@ -228,6 +228,11 @@ def to_mc_symbol(vt_symbol: str) -> str:
             # 获取关键信息
             strike: str = left[strike_start:]
             time_str: str = left[:time_end + 1]
+            
+            if "MS" in symbol:
+                time_str = time_str.replace("MS", "")
+                product = product + "_MS"
+
             month = time_str[-2:]
             year = time_str.replace(month, "")
 
