@@ -128,7 +128,7 @@ class McdataDatafeed(BaseDatafeed):
 
         # 失败则直接返回
         if not all_quote_history:
-            output(f"获取{req.symbol}合约{req.start}-{req.end}历史数据失败 {mc_symbol}")
+            output(f"获取{req.symbol}合约{req.start}-{req.end}历史数据失败")
             return []
 
         # 转换数据格式
