@@ -263,10 +263,10 @@ def get_product(symbol: str) -> str:
 def check_perpetual(symbol: str) -> str:
     """判断是否为连续合约"""
     for suffix in [
-        "HOT",
-        "HOT/Q",
-        "HOT/H",
-        "000000"
+        "HOT",      # 主力连续
+        "HOT/Q",    # 主力前复权
+        "HOT/H",    # 主力后复权
+        "000000"    # 指数连续
     ]:
         if symbol.endswith(suffix):
             return suffix
