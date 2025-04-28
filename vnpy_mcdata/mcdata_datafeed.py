@@ -94,7 +94,7 @@ class McdataDatafeed(BaseDatafeed):
         all_quote_history: list[dict] = []
         query_start: datetime = req.start
 
-        while query_start < req.end:
+        while query_start.date() <= req.end.date():
             if req.interval in [Interval.DAILY, Interval.HOUR]:
                 quote_history: list[dict] = self.api.getquotehistory(
                     mc_interval,
@@ -194,7 +194,7 @@ def to_mc_symbol(vt_symbol: str) -> str:
                 # 获取合约年份
                 year: str = symbol.replace(product, "").replace(month, "")
                 if len(year) == 1:      # 郑商所特殊处理
-                    if int(year) <= 5:
+                    if int(year) <= 6:
                         year = "2" + year
                     else:
                         year = "1" + year
@@ -223,17 +223,22 @@ def to_mc_symbol(vt_symbol: str) -> str:
                     option_type = "P"
                     time_end = left.index("P") - 1
 
-                strike_start = time_end + 3
+                strike_start = time_end + 2
 
             # 获取关键信息
             strike: str = left[strike_start:]
             time_str: str = left[:time_end + 1]
+            
+            if "MS" in symbol:
+                time_str = time_str.replace("MS", "")
+                product = product + "_MS"
+
             month = time_str[-2:]
             year = time_str.replace(month, "")
 
             # 郑商所特殊处理
             if len(year) == 1:
-                if int(year) <= 5:
+                if int(year) <= 6:
                     year = "2" + year
                 else:
                     year = "1" + year
