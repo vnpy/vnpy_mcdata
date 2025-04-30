@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from collections.abc import Callable
 from functools import lru_cache
 
@@ -87,41 +87,51 @@ class McdataDatafeed(BaseDatafeed):
             output(f"查询K线数据失败：不支持的时间周期{req.interval.value}")
             return []
 
+        # 检查结束时间
+        if not req.end:
+            req.end = datetime.now(CHINA_TZ)
+
         # 获取时间戳平移幅度
         adjustment: timedelta = INTERVAL_ADJUSTMENT_MAP[req.interval]
 
-        # 逐日查询K线数据
+        # 初始化查询数据缓存
         all_quote_history: list[dict] = []
-        query_start: datetime = req.start
 
-        while query_start.date() <= req.end.date():
-            if req.interval in [Interval.DAILY, Interval.HOUR]:
-                quote_history: list[dict] = self.api.getquotehistory(
-                    mc_interval,
-                    mc_window,
-                    mc_symbol,
-                    req.start.strftime("%Y%m%d%H"),
-                    req.end.strftime("%Y%m%d%H")
-                )
-
-                if quote_history:
-                    all_quote_history.extend(quote_history)
-                break
-
-            query_end: datetime = query_start + timedelta(days=1)
-
-            # 发起K线查询
-            quote_history = self.api.getquotehistory(
+        # 日线和小时线直接全量查询
+        if req.interval in [Interval.DAILY, Interval.HOUR]:
+            quote_history: list[dict] | None = self.api.getquotehistory(
                 mc_interval,
                 mc_window,
                 mc_symbol,
-                query_start.strftime("%Y%m%d%H"),
-                query_end.strftime("%Y%m%d%H")
+                req.start.strftime("%Y%m%d%H"),
+                req.end.strftime("%Y%m%d%H")
             )
 
-            # 保存查询结果
             if quote_history:
                 all_quote_history.extend(quote_history)
+        # 分钟K线采用逐日查询
+        else:
+            query_start: date = req.start.date()
+            query_end: date = req.end.date()
+            d: date = query_start
+
+            while d < query_end:
+                # 跳过周末
+                if d.weekday() not in {5, 6}:
+                    # 发起K线查询
+                    quote_history = self.api.getquotehistory(
+                        mc_interval,
+                        mc_window,
+                        mc_symbol,
+                        d.strftime("%Y%m%d00"),
+                        (d + timedelta(days=1)).strftime("%Y%m%d00")
+                    )
+
+                    # 保存查询结果
+                    if quote_history:
+                        all_quote_history.extend(quote_history)
+
+                d += timedelta(days=1)
 
             # 更新查询起始时间
             query_start = query_end
@@ -132,13 +142,17 @@ class McdataDatafeed(BaseDatafeed):
             return []
 
         # 转换数据格式
-        bars: list[BarData] = []
+        bars: dict[datetime,BarData] = {}
 
         for history in all_quote_history:
+            # 调整时间戳为K线开始
             dt: datetime = (history["DateTime"] - adjustment).replace(tzinfo=CHINA_TZ)
+
+            # 日线移除分钟和秒
             if req.interval == Interval.DAILY:
                 dt = dt.replace(hour=0, minute=0)
 
+            # 创建K线对象并缓存
             bar: BarData = BarData(
                 symbol=req.symbol,
                 exchange=req.exchange,
@@ -152,9 +166,11 @@ class McdataDatafeed(BaseDatafeed):
                 open_interest=history["OpenInterest"],
                 gateway_name="MCDATA"
             )
-            bars.append(bar)
 
-        return bars
+            bars[bar.datetime] = bar
+
+        dts: list[datetime] = sorted(bars.keys())
+        return [bars[dt] for dt in dts]
 
     def query_tick_history(self, req: HistoryRequest, output: Callable = print) -> list[TickData]:
         """查询Tick数据（暂未支持）"""
@@ -228,7 +244,7 @@ def to_mc_symbol(vt_symbol: str) -> str:
             # 获取关键信息
             strike: str = left[strike_start:]
             time_str: str = left[:time_end + 1]
-            
+
             if "MS" in symbol:
                 time_str = time_str.replace("MS", "")
                 product = product + "_MS"
