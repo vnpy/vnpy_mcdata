@@ -170,7 +170,9 @@ class McdataDatafeed(BaseDatafeed):
             bars[bar.datetime] = bar
 
         dts: list[datetime] = sorted(bars.keys())
-        return [bars[dt] for dt in dts]
+        result: list[BarData] = [bars[dt] for dt in dts]
+
+        return result
 
     def query_tick_history(self, req: HistoryRequest, output: Callable = print) -> list[TickData]:
         """查询Tick数据（暂未支持）"""
