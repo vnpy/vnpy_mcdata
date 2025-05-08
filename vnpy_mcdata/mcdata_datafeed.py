@@ -142,7 +142,7 @@ class McdataDatafeed(BaseDatafeed):
             return []
 
         # 转换数据格式
-        bars: dict[datetime,BarData] = {}
+        bars: dict[datetime, BarData] = {}
 
         for history in all_quote_history:
             # 调整时间戳为K线开始
@@ -175,8 +175,82 @@ class McdataDatafeed(BaseDatafeed):
         return result
 
     def query_tick_history(self, req: HistoryRequest, output: Callable = print) -> list[TickData]:
-        """查询Tick数据（暂未支持）"""
-        return []
+        """查询Tick数据"""
+        if not self.inited:
+            n: bool = self.init(output)
+            if not n:
+                return []
+
+        # 检查合约代码
+        mc_symbol: str = to_mc_symbol(req.vt_symbol)
+        if not mc_symbol:
+            output(f"查询K线数据失败：不支持的合约代码{req.vt_symbol}")
+            return []
+
+        # 检查结束时间
+        if not req.end:
+            req.end = datetime.now(CHINA_TZ)
+
+        # 初始化查询数据缓存
+        all_quote_history: list[dict] = []
+
+        query_start: date = req.start.date()
+        query_end: date = req.end.date()
+        d: date = query_start
+
+        while d < query_end:
+            # 跳过周末
+            if d.weekday() not in {5, 6}:
+                # 发起K线查询
+                quote_history = self.api.getquotehistory(
+                    BarType.TICK,
+                    1,
+                    mc_symbol,
+                    d.strftime("%Y%m%d00"),
+                    (d + timedelta(days=1)).strftime("%Y%m%d00")
+                )
+
+                # 保存查询结果
+                if quote_history:
+                    all_quote_history.extend(quote_history)
+
+            d += timedelta(days=1)
+
+        # 更新查询起始时间
+        query_start = query_end
+
+        # 失败则直接返回
+        if not all_quote_history:
+            output(f"获取{req.symbol}合约{req.start}-{req.end}历史数据失败")
+            return []
+
+        # 转换数据格式
+        ticks: dict[datetime, TickData] = {}
+
+        for history in all_quote_history:
+            dt: datetime = history["DateTime"].replace(tzinfo=CHINA_TZ)
+
+            # 创建Tick对象并缓存
+            tick: TickData = TickData(
+                symbol=req.symbol,
+                exchange=req.exchange,
+                datetime=dt,
+                name=req.symbol,
+                last_price=history["Last"],
+                last_volume=history["Quantity"],
+                volume=history["Volume"],
+                open_interest=history["OpenInterest"],
+                bid_price_1=history["Bid"],
+                ask_price_1=history["Ask"],
+                gateway_name="MCDATA"
+            )
+
+            ticks[tick.datetime] = tick
+
+        dts: list[datetime] = sorted(ticks.keys())
+        result: list[TickData] = [ticks[dt] for dt in dts]
+
+        return result
 
 
 @lru_cache(maxsize=10000)
