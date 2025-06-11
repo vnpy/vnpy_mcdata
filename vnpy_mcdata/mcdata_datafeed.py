@@ -48,7 +48,7 @@ class McdataDatafeed(BaseDatafeed):
         """构造函数"""
         self.apppath: str = SETTINGS["datafeed.username"]       # 传参用的字段名
         if not self.apppath:
-            self.apppath = "D:/MCTrader14/APPs"                 # 默认程序路径
+            self.apppath = "C:/MCTrader14/APPs"                 # 默认程序路径
 
         self.inited: bool = False                               # 初始化状态
 

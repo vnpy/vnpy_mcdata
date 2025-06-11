@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-    <img src ="https://img.shields.io/badge/version-1.0.2-blueviolet.svg"/>
+    <img src ="https://img.shields.io/badge/version-1.0.3-blueviolet.svg"/>
     <img src ="https://img.shields.io/badge/platform-windows-yellow.svg"/>
     <img src ="https://img.shields.io/badge/python-3.10|3.11|3.12|3.13-blue.svg" />
     <img src ="https://img.shields.io/github/license/vnpy/vnpy.svg?color=orange"/>
@@ -13,7 +13,7 @@
 
 ## 说明
 
-基于艾杨软件MultiCharts的数据服务接口，支持以下中国金融市场的K线数据：
+基于艾杨软件MultiCharts的数据服务接口，支持以下中国金融市场的K线和Tick数据：
 
 * 期货和期货期权：
   * CFFEX：中国金融期货交易所
@@ -52,4 +52,4 @@ pip install .
 |名称|含义|必填|举例|
 |---------|----|---|---|
 |datafeed.name|名称|是|mcdata|
-|datafeed.username|MultiCharts安装所在目录|是|C:/AlgoMaster2/APPs64|
+|datafeed.username|MultiCharts安装所在目录|是|C:/MCTrader14/APPs|
