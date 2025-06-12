@@ -115,7 +115,7 @@ class McdataDatafeed(BaseDatafeed):
             query_end: date = req.end.date()
             d: date = query_start
 
-            while d < query_end:
+            while d <= query_end:
                 # 跳过周末
                 if d.weekday() not in {5, 6}:
                     # 发起K线查询
