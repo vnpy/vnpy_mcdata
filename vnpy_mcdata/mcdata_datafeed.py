@@ -98,7 +98,7 @@ class McdataDatafeed(BaseDatafeed):
         all_quote_history: list[dict] = []
 
         # 日线和小时线直接全量查询
-        if req.interval in [Interval.DAILY, Interval.HOUR]:
+        if req.interval == Interval.DAILY:
             quote_history: list[dict] | None = self.api.getquotehistory(
                 mc_interval,
                 mc_window,
