@@ -97,7 +97,7 @@ class McdataDatafeed(BaseDatafeed):
         # 初始化查询数据缓存
         all_quote_history: list[dict] = []
 
-        # 日线和小时线直接全量查询
+        # 日线直接全量查询
         if req.interval == Interval.DAILY:
             quote_history: list[dict] | None = self.api.getquotehistory(
                 mc_interval,
@@ -109,7 +109,7 @@ class McdataDatafeed(BaseDatafeed):
 
             if quote_history:
                 all_quote_history.extend(quote_history)
-        # 分钟K线采用逐日查询
+        # 分钟和小时K线采用逐日查询
         else:
             query_start: date = req.start.date()
             query_end: date = req.end.date()
