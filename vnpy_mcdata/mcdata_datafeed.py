@@ -76,7 +76,7 @@ class McdataDatafeed(BaseDatafeed):
                 return []
 
         # 检查合约代码
-        mc_symbol: str = to_mc_symbol(req.vt_symbol)
+        symbol, mc_symbol = to_mc_symbol(req.vt_symbol)
         if not mc_symbol:
             output(f"查询K线数据失败：不支持的合约代码{req.vt_symbol}")
             return []
@@ -138,7 +138,7 @@ class McdataDatafeed(BaseDatafeed):
 
         # 失败则直接返回
         if not all_quote_history:
-            output(f"获取{req.symbol}合约{req.start}-{req.end}历史数据失败")
+            output(f"获取{symbol}合约{req.start}-{req.end}历史数据失败")
             return []
 
         # 转换数据格式
@@ -154,7 +154,7 @@ class McdataDatafeed(BaseDatafeed):
 
             # 创建K线对象并缓存
             bar: BarData = BarData(
-                symbol=req.symbol,
+                symbol=symbol,
                 exchange=req.exchange,
                 interval=req.interval,
                 datetime=dt,
@@ -254,9 +254,12 @@ class McdataDatafeed(BaseDatafeed):
 
 
 @lru_cache(maxsize=10000)
-def to_mc_symbol(vt_symbol: str) -> str:
+def to_mc_symbol(vt_symbol: str) -> tuple[str, str]:
     """转换为MC合约代码"""
     symbol, exchange = extract_vt_symbol(vt_symbol)
+
+    if ";" in symbol:
+        return symbol.split(";")
 
     # 目前只支持期货交易所合约
     if exchange in {
@@ -274,7 +277,7 @@ def to_mc_symbol(vt_symbol: str) -> str:
             # 连续合约
             if suffix:
                 product: str = symbol.replace(suffix, "")
-                return f"TC.F.{exchange.value}.{product}.{suffix}"
+                return symbol, f"TC.F.{exchange.value}.{product}.{suffix}"
             # 交易合约
             else:
                 # 获取产品代码
@@ -291,7 +294,7 @@ def to_mc_symbol(vt_symbol: str) -> str:
                     else:
                         year = "1" + year
 
-                return f"TC.F.{exchange.value}.{product}.20{year}{month}"
+                return symbol, f"TC.F.{exchange.value}.{product}.20{year}{month}"
         # 期货期权合约
         else:
             product = get_product(symbol)
@@ -335,9 +338,9 @@ def to_mc_symbol(vt_symbol: str) -> str:
                 else:
                     year = "1" + year
 
-            return f"TC.O.{exchange.value}.{product}.20{year}{month}.{option_type}.{strike}"
+            return symbol, f"TC.O.{exchange.value}.{product}.20{year}{month}.{option_type}.{strike}"
 
-    return ""
+    return symbol, ""
 
 
 def get_product(symbol: str) -> str:
