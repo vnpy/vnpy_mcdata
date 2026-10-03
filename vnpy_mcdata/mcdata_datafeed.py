@@ -1,3 +1,5 @@
+"""MultiCharts历史数据服务实现。"""
+
 from datetime import datetime, timedelta, date
 from collections.abc import Callable
 from functools import lru_cache

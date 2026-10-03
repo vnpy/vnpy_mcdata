@@ -20,6 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+"""MultiCharts历史数据服务。"""
 
 from .mcdata_datafeed import McdataDatafeed as Datafeed
 

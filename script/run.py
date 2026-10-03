@@ -1,3 +1,5 @@
+"""启动MultiCharts数据管理终端。"""
+
 from vnpy.event import EventEngine
 from vnpy.trader.engine import MainEngine
 from vnpy.trader.setting import SETTINGS
