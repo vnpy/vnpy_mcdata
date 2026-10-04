@@ -3,6 +3,7 @@
 from datetime import datetime, timedelta, date
 from collections.abc import Callable
 from functools import lru_cache
+from typing import cast
 
 from icetcore import TCoreAPI, BarType
 
@@ -84,9 +85,10 @@ class McdataDatafeed(BaseDatafeed):
             return []
 
         # 检查K线周期
-        mc_interval, mc_window = INTERVAL_VT2MC.get(req.interval, ("", ""))
+        interval: Interval = cast(Interval, req.interval)
+        mc_interval, mc_window = INTERVAL_VT2MC.get(interval, ("", ""))
         if not mc_interval:
-            output(f"查询K线数据失败：不支持的时间周期{req.interval.value}")
+            output(f"查询K线数据失败：不支持的时间周期{interval.value}")
             return []
 
         # 检查结束时间
@@ -94,7 +96,7 @@ class McdataDatafeed(BaseDatafeed):
             req.end = datetime.now(CHINA_TZ)
 
         # 获取时间戳平移幅度
-        adjustment: timedelta = INTERVAL_ADJUSTMENT_MAP[req.interval]
+        adjustment: timedelta = INTERVAL_ADJUSTMENT_MAP[interval]
 
         # 初始化查询数据缓存
         all_quote_history: list[dict] = []
