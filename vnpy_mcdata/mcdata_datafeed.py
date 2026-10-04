@@ -41,7 +41,7 @@ EXCHANGE_MC2VT: dict[str, Exchange] = {
 }
 
 # 时区常量
-CHINA_TZ = ZoneInfo("Asia/Shanghai")
+CHINA_TZ: ZoneInfo = ZoneInfo("Asia/Shanghai")
 
 
 class McdataDatafeed(BaseDatafeed):
@@ -86,6 +86,8 @@ class McdataDatafeed(BaseDatafeed):
 
         # 检查K线周期
         interval: Interval = cast(Interval, req.interval)
+        mc_interval: BarType | str
+        mc_window: int | str
         mc_interval, mc_window = INTERVAL_VT2MC.get(interval, ("", ""))
         if not mc_interval:
             output(f"查询K线数据失败：不支持的时间周期{interval.value}")
@@ -148,6 +150,7 @@ class McdataDatafeed(BaseDatafeed):
         # 转换数据格式
         bars: dict[datetime, BarData] = {}
 
+        history: dict
         for history in all_quote_history:
             # 调整时间戳为K线开始
             dt: datetime = (history["DateTime"] - adjustment).replace(tzinfo=CHINA_TZ)
@@ -206,7 +209,7 @@ class McdataDatafeed(BaseDatafeed):
             # 跳过周末
             if d.weekday() not in {5, 6}:
                 # 发起K线查询
-                quote_history = self.api.getquotehistory(
+                quote_history: list[dict] | None = self.api.getquotehistory(
                     BarType.TICK,
                     1,
                     mc_symbol,
@@ -231,6 +234,7 @@ class McdataDatafeed(BaseDatafeed):
         # 转换数据格式
         ticks: dict[datetime, TickData] = {}
 
+        history: dict
         for history in all_quote_history:
             dt: datetime = history["DateTime"].replace(tzinfo=CHINA_TZ)
 
@@ -260,6 +264,8 @@ class McdataDatafeed(BaseDatafeed):
 @lru_cache(maxsize=10000)
 def to_mc_symbol(vt_symbol: str) -> str:
     """转换为MC合约代码"""
+    symbol: str
+    exchange: Exchange
     symbol, exchange = extract_vt_symbol(vt_symbol)
 
     # 目前只支持期货交易所合约
@@ -348,6 +354,7 @@ def get_product(symbol: str) -> str:
     """获取期货产品代码"""
     buf: list[str] = []
 
+    w: str
     for w in symbol:
         if w.isdigit():
             break
@@ -358,6 +365,7 @@ def get_product(symbol: str) -> str:
 
 def check_perpetual(symbol: str) -> str:
     """判断是否为连续合约"""
+    suffix: str
     for suffix in [
         "HOT",      # 主力连续
         "HOT/Q",    # 主力前复权
