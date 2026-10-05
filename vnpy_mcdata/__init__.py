@@ -25,7 +25,7 @@
 from .mcdata_datafeed import McdataDatafeed as Datafeed
 
 
-__version__ = "1.0.5"
+__version__ = "1.0.6"
 
 
 __all__ = ["Datafeed"]
